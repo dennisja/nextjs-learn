@@ -7,22 +7,48 @@ import { z } from 'zod';
 
 const InvoiceSchema = z.object({
   id: z.string().uuid(),
-  customerId: z.string().uuid(),
-  amount: z.coerce.number().positive(),
-  status: z.enum(['pending', 'paid']),
+  customerId: z
+    .string({ invalid_type_error: 'Please select a customer.' })
+    .uuid(),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: 'Please enter an amount greater than $0' }),
+  status: z.enum(['pending', 'paid'], {
+    invalid_type_error: 'Please select an invoice status.',
+  }),
   date: z.string(),
 });
 
 const CreateInvoiceFormSchema = InvoiceSchema.omit({ id: true, date: true });
 
-export async function createInvoice(formData: FormData) {
-  const { customerId, amount, status } = CreateInvoiceFormSchema.parse({
+export type CreateInvoiceFormState = {
+  errors?: { customerId?: string[]; amount?: string[]; status?: string[] };
+  message?: string | null;
+};
+export async function createInvoice(
+  prevState: CreateInvoiceFormState,
+  formData: FormData,
+) {
+  // validate form using zod
+  const validatedFields = CreateInvoiceFormSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
+
+  // if validation fails, return errors
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Invoice.',
+    };
+  }
+
+  // prepare data for insertion into database
+  const { customerId, amount, status } = validatedFields.data;
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split('T')[0];
+
   try {
     await sql`INSERT INTO invoices (customer_id, amount, status, date)
   VALUES (${customerId}, ${amountInCents}, ${status}, ${date})`;
