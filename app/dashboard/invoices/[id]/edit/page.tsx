@@ -3,6 +3,17 @@ import Breadcrumbs from '@/app/ui/invoices/breadcrumbs';
 import Form from '@/app/ui/invoices/edit-form';
 import { notFound } from 'next/navigation';
 
+type GenerateMetaDataProps = {
+  params: { id: string };
+};
+export const generateMetadata = async ({
+  params: { id },
+}: GenerateMetaDataProps) => {
+  const invoice = await fetchInvoiceById(id);
+  // Note: In the real world you wouldn't use the invoice id and would handle what happens if the invoice is not found
+  return { title: `Edit invoice ${invoice.customer_id}` };
+};
+
 export default async function Page({
   params: { id },
 }: {
